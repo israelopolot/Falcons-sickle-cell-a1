@@ -7,3 +7,12 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.10"
+
+  - type: static_site
+    name: sickle-cell-ai-frontend
+    env: node
+    buildCommand: npm install --prefix SICKLE-CELL-UI/sickle-cell-ui && npm run --prefix SICKLE-CELL-UI/sickle-cell-ui build
+    staticPublishPath: SICKLE-CELL-UI/sickle-cell-ui/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://sickle-cell-ai-backend.onrender.com
