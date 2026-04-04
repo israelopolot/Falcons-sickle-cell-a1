@@ -94,6 +94,28 @@ To disable/manage:
   - Port conflicts
   - Dependencies not in `requirements.txt`
 
+## Troubleshooting Frontend Build Failures
+
+If the frontend build fails on Render:
+
+1. **Check build logs** in Render dashboard for specific error messages
+2. **Common issues:**
+   - Node version mismatch (Render uses Node 18+)
+   - Missing dependencies in `package.json`
+   - Build command path issues
+
+3. **Alternative build commands to try:**
+   - Change **Build Command** to: `npm install --prefix SICKLE-CELL-UI/sickle-cell-ui && npm run build --prefix SICKLE-CELL-UI/sickle-cell-ui`
+   - Or: `cd SICKLE-CELL-UI/sickle-cell-ui && npm install --production=false && npm run build`
+
+4. **If still failing:**
+   - Ensure `package-lock.json` is committed
+   - Check if all dependencies are compatible with Node 18+
+   - Try building locally first: `cd SICKLE-CELL-UI/sickle-cell-ui && npm install && npm run build`
+
+5. **Manual deploy:**
+   - In Render dashboard, click **Manual Deploy** → **Clear build cache and deploy**
+
 ---
 
 ## Free Tier Limits
