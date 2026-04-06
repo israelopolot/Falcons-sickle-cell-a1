@@ -16,3 +16,5 @@ services:
     envVars:
       - key: REACT_APP_API_URL
         value: https://sickle-cell-ai-backend.onrender.com
+      - key: NODE_VERSION
+        value: "18"
