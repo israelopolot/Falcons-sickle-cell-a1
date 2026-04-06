@@ -10,7 +10,7 @@ services:
 
   - type: static_site
     name: sickle-cell-ai-frontend
-    env: node
+    runtime: node
     buildCommand: cd SICKLE-CELL-UI/sickle-cell-ui && npm install && npm run build
     staticPublishPath: SICKLE-CELL-UI/sickle-cell-ui/build
     envVars:
