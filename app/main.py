@@ -332,16 +332,21 @@ def analyze_lab_values(hb: float, wbc: float, rbc: float, rdw: float, platelets:
     
     # Determine overall risk assessment
     if ml_prediction:
-        sickle_prob = ml_prediction["sickle_probability"]
-        carrier_prob = ml_prediction["carrier_probability"]
-        normal_prob = ml_prediction["normal_probability"]
-        
-        if ml_prediction["model_prediction"] == "Sickle Cell Disease":
-            risk_assessment = f"HIGH RISK - ML Model: {sickle_prob*100:.1f}% Sickle Cell Disease Pattern"
-        elif ml_prediction["model_prediction"] == "Carrier (Trait)":
-            risk_assessment = f"MODERATE RISK - ML Model: {carrier_prob*100:.1f}% Carrier Pattern (Sickle Cell Trait)"
+        model_label = ml_prediction["model_prediction"]
+        confidence_pct = ml_prediction["confidence"] * 100
+
+        if model_label == "Sickle Cell Disease":
+            risk_assessment = (
+                f"HIGH RISK - Sickle Cell Disease detected ({confidence_pct:.1f}% confidence)"
+            )
+        elif model_label == "Carrier (Trait)":
+            risk_assessment = (
+                f"MODERATE RISK - Sickle cell trait detected ({confidence_pct:.1f}% confidence)"
+            )
         else:
-            risk_assessment = f"LOW RISK - ML Model: {normal_prob*100:.1f}% Normal Pattern"
+            risk_assessment = (
+                f"LOW RISK - Normal pattern detected ({confidence_pct:.1f}% confidence)"
+            )
     else:
         # Fallback to rule-based assessment if ML not available
         if risk_indicators:
