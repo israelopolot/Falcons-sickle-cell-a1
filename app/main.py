@@ -46,7 +46,7 @@ lab_values_normalization = None
 if Path(LAB_VALUES_MODEL_PATH).exists() and Path(LAB_VALUES_NORMALIZATION_PATH).exists():
     # Define lab values model architecture (must match training)
     class LabValuesModelArch(nn.Module):
-        def __init__(self, input_size=3, hidden_size=64, num_classes=3):
+        def __init__(self, input_size=5, hidden_size=64, num_classes=3):
             super(LabValuesModelArch, self).__init__()
             self.fc1 = nn.Linear(input_size, hidden_size)
             self.relu1 = nn.ReLU()
@@ -94,6 +94,8 @@ class LabValuesAnalysisResponse(BaseModel):
     """Response model for lab values analysis"""
     hb: float
     wbc: float
+    rbc: float
+    rdw: float
     platelets: float
     analysis: dict
     risk_assessment: str
@@ -164,7 +166,7 @@ def get_medical_interpretation(label: str, confidence: float) -> tuple:
     return interpretation, recommendations, is_sickle
 
 
-def analyze_lab_values(hb: float, wbc: float, platelets: float) -> tuple:
+def analyze_lab_values(hb: float, wbc: float, rbc: float, rdw: float, platelets: float) -> tuple:
     """
     Analyze lab values using trained ML model
     Returns: (analysis_dict, risk_assessment, recommendations, ml_prediction)
@@ -172,6 +174,8 @@ def analyze_lab_values(hb: float, wbc: float, platelets: float) -> tuple:
     Normal Ranges:
     - Hemoglobin (Hb): 12.0-17.5 g/dL (varies by gender/age)
     - WBC: 4.5-11.0 × 10^9/L
+    - RBC: 4.0-6.0 × 10^12/L
+    - RDW: 11.5-14.5%
     - Platelets: 150-400 × 10^9/L
     """
     
@@ -183,6 +187,16 @@ def analyze_lab_values(hb: float, wbc: float, platelets: float) -> tuple:
         },
         "wbc": {
             "value": wbc,
+            "status": None,
+            "interpretation": ""
+        },
+        "rbc": {
+            "value": rbc,
+            "status": None,
+            "interpretation": ""
+        },
+        "rdw": {
+            "value": rdw,
             "status": None,
             "interpretation": ""
         },
@@ -235,6 +249,38 @@ def analyze_lab_values(hb: float, wbc: float, platelets: float) -> tuple:
         analysis["wbc"]["interpretation"] = "Significantly elevated WBC count - leukocytosis"
         risk_indicators.append("leukocytosis")
     
+    # Analyze RBC
+    if rbc < 3.0:
+        analysis["rbc"]["status"] = "CRITICAL"
+        analysis["rbc"]["interpretation"] = "Critically low RBC count - severe anemia"
+        risk_indicators.append("low_rbc")
+    elif rbc < 4.0:
+        analysis["rbc"]["status"] = "ABNORMAL_LOW"
+        analysis["rbc"]["interpretation"] = "Low RBC count - anemia"
+        risk_indicators.append("low_rbc")
+    elif rbc <= 5.5:
+        analysis["rbc"]["status"] = "NORMAL"
+        analysis["rbc"]["interpretation"] = "RBC count within normal range"
+    else:
+        analysis["rbc"]["status"] = "HIGH"
+        analysis["rbc"]["interpretation"] = "Elevated RBC count"
+    
+    # Analyze RDW
+    if rdw < 11.0:
+        analysis["rdw"]["status"] = "ABNORMAL_LOW"
+        analysis["rdw"]["interpretation"] = "Low red blood cell distribution width"
+    elif rdw <= 14.5:
+        analysis["rdw"]["status"] = "NORMAL"
+        analysis["rdw"]["interpretation"] = "RDW within normal range"
+    elif rdw <= 16.5:
+        analysis["rdw"]["status"] = "ELEVATED"
+        analysis["rdw"]["interpretation"] = "Mildly elevated RDW - some red cell size variation"
+        risk_indicators.append("elevated_rdw")
+    else:
+        analysis["rdw"]["status"] = "ABNORMAL_HIGH"
+        analysis["rdw"]["interpretation"] = "Significantly elevated RDW - high red cell size variability"
+        risk_indicators.append("elevated_rdw")
+    
     # Analyze Platelets
     if platelets < 50:
         analysis["platelets"]["status"] = "CRITICAL"
@@ -263,7 +309,7 @@ def analyze_lab_values(hb: float, wbc: float, platelets: float) -> tuple:
             mean = lab_values_normalization['mean']
             std = lab_values_normalization['std']
             
-            input_array = np.array([[hb, wbc, platelets]])
+            input_array = np.array([[hb, wbc, rbc, rdw, platelets]])
             input_normalized = (input_array - mean) / std
             input_tensor = torch.FloatTensor(input_normalized)
             
@@ -300,7 +346,7 @@ def analyze_lab_values(hb: float, wbc: float, platelets: float) -> tuple:
         # Fallback to rule-based assessment if ML not available
         if risk_indicators:
             sickle_cell_patterns = [
-                "anemia", "low_hemoglobin", "elevated_wbc", "thrombocytopenia"
+                "anemia", "low_hemoglobin", "low_rbc", "elevated_wbc", "elevated_rdw", "thrombocytopenia"
             ]
             sickle_indicators = sum(1 for r in risk_indicators if r in sickle_cell_patterns)
             
@@ -399,6 +445,8 @@ async def predict_image(image: UploadFile = File(...)):
 async def analyze_lab_values_endpoint(
     hb: float,
     wbc: float,
+    rbc: float,
+    rdw: float,
     platelets: float
 ):
     """
@@ -406,6 +454,8 @@ async def analyze_lab_values_endpoint(
     
     - **hb**: Hemoglobin value (g/dL)
     - **wbc**: White Blood Cell count (×10^9/L)
+    - **rbc**: Red Blood Cell count (×10^12/L)
+    - **rdw**: Red Cell Distribution Width (%)
     - **platelets**: Platelet count (×10^9/L)
     
     **Medical Disclaimer**: This analysis is supportive only and not a substitute
@@ -424,6 +474,16 @@ async def analyze_lab_values_endpoint(
                 status_code=400,
                 detail="WBC value must be between 0 and 100 ×10^9/L"
             )
+        if not (0 < rbc <= 10):
+            raise HTTPException(
+                status_code=400,
+                detail="RBC value must be between 0 and 10 ×10^12/L"
+            )
+        if not (0 < rdw <= 50):
+            raise HTTPException(
+                status_code=400,
+                detail="RDW value must be between 0 and 50%"
+            )
         if not (0 < platelets <= 1000):
             raise HTTPException(
                 status_code=400,
@@ -431,11 +491,13 @@ async def analyze_lab_values_endpoint(
             )
         
         # Analyze values
-        analysis, risk_assessment, recommendations, ml_prediction = analyze_lab_values(hb, wbc, platelets)
+        analysis, risk_assessment, recommendations, ml_prediction = analyze_lab_values(hb, wbc, rbc, rdw, platelets)
         
         response_data = {
             "hb": round(hb, 1),
             "wbc": round(wbc, 1),
+            "rbc": round(rbc, 2),
+            "rdw": round(rdw, 1),
             "platelets": round(platelets, 1),
             "analysis": analysis,
             "risk_assessment": risk_assessment,

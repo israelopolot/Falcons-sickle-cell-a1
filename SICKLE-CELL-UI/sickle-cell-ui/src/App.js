@@ -102,9 +102,11 @@ function App() {
     const formData = new FormData(e.target);
     const hb = parseFloat(formData.get('hb'));
     const wbc = parseFloat(formData.get('wbc'));
+    const rbc = parseFloat(formData.get('rbc'));
+    const rdw = parseFloat(formData.get('rdw'));
     const platelets = parseFloat(formData.get('platelets'));
 
-    if (isNaN(hb) || isNaN(wbc) || isNaN(platelets)) {
+    if (isNaN(hb) || isNaN(wbc) || isNaN(rbc) || isNaN(rdw) || isNaN(platelets)) {
       setError('Please enter valid numeric values');
       return;
     }
@@ -115,7 +117,7 @@ function App() {
     try {
       // Call backend API
       const response = await fetch(
-        getBackendEndpoint(`/analyze-lab-values?hb=${hb}&wbc=${wbc}&platelets=${platelets}`),
+        getBackendEndpoint(`/analyze-lab-values?hb=${hb}&wbc=${wbc}&rbc=${rbc}&rdw=${rdw}&platelets=${platelets}`),
         {
           method: 'POST',
           headers: {
@@ -135,6 +137,8 @@ function App() {
         type: 'lab',
         hb: data.hb,
         wbc: data.wbc,
+        rbc: data.rbc,
+        rdw: data.rdw,
         platelets: data.platelets,
         analysis: data.analysis,
         risk_assessment: data.risk_assessment,
@@ -297,7 +301,7 @@ function App() {
                 <div className="option-card" onClick={() => setSelectMode('lab')} role="button" tabIndex="0">
                   <div className="option-icon" aria-hidden="true">📋</div>
                   <div className="option-title">Enter Lab Values</div>
-                  <div className="option-subtitle">Analyze hemoglobin, WBC, platelets</div>
+                  <div className="option-subtitle">Analyze hemoglobin, WBC, RBC, RDW, and platelets</div>
                 </div>
               </div>
 
@@ -376,6 +380,36 @@ function App() {
                       disabled={isProcessing}
                     />
                     <small className="input-hint">Normal range: 4.5-11 ×10^9/L</small>
+                  </div>
+                  <div className="lab-input-group">
+                    <label htmlFor="rbc">RBC Count 10^12/L</label>
+                    <input
+                      id="rbc"
+                      name="rbc"
+                      type="number"
+                      step="0.01"
+                      placeholder="Normal: 4.0-6.0"
+                      required
+                      min="0"
+                      max="10"
+                      disabled={isProcessing}
+                    />
+                    <small className="input-hint">Normal range: 4.0-6.0 ×10^12/L</small>
+                  </div>
+                  <div className="lab-input-group">
+                    <label htmlFor="rdw">RDW (%)</label>
+                    <input
+                      id="rdw"
+                      name="rdw"
+                      type="number"
+                      step="0.1"
+                      placeholder="Normal: 11.5-14.5"
+                      required
+                      min="0"
+                      max="50"
+                      disabled={isProcessing}
+                    />
+                    <small className="input-hint">Normal range: 11.5-14.5%</small>
                   </div>
                   <div className="lab-input-group">
                     <label htmlFor="platelets">Platelets 10^9/L</label>
@@ -577,6 +611,30 @@ function App() {
                       {results.analysis.wbc.status}
                     </div>
                     <p className="lab-interpretation">{results.analysis.wbc.interpretation}</p>
+                  </div>
+
+                  <div className="lab-result-item">
+                    <div className="lab-value-header">
+                      <span className="lab-icon">🧬</span>
+                      <h4>RBC Count</h4>
+                    </div>
+                    <div className="lab-value-main">{results.rbc} ×10^12/L</div>
+                    <div className={`lab-status lab-${results.analysis.rbc.status.toLowerCase().replace('_', '-')}`}>
+                      {results.analysis.rbc.status}
+                    </div>
+                    <p className="lab-interpretation">{results.analysis.rbc.interpretation}</p>
+                  </div>
+
+                  <div className="lab-result-item">
+                    <div className="lab-value-header">
+                      <span className="lab-icon">📈</span>
+                      <h4>RDW</h4>
+                    </div>
+                    <div className="lab-value-main">{results.rdw}%</div>
+                    <div className={`lab-status lab-${results.analysis.rdw.status.toLowerCase().replace('_', '-')}`}>
+                      {results.analysis.rdw.status}
+                    </div>
+                    <p className="lab-interpretation">{results.analysis.rdw.interpretation}</p>
                   </div>
 
                   <div className="lab-result-item">
