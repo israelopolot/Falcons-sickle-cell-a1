@@ -3,6 +3,7 @@ from typing import List
 
 import torch
 from torchvision import transforms
+from torchvision.models import resnet18
 from PIL import Image
 
 
@@ -10,7 +11,7 @@ def load_model(model_path: str):
     checkpoint = torch.load(model_path, map_location=torch.device("cpu"))
     classes = checkpoint.get("classes", ["normal", "sickle"])
 
-    model = torch.hub.load('pytorch/vision:v0.15.2', 'resnet18', pretrained=False)
+    model = resnet18(pretrained=False)
     num_features = model.fc.in_features
     model.fc = torch.nn.Linear(num_features, len(classes))
     model.load_state_dict(checkpoint["model_state"])
