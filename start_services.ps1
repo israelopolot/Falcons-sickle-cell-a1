@@ -26,7 +26,7 @@ Log "================================================" Green
 if (-not $FrontendOnly) { Check-Command python "Python" }
 if (-not $BackendOnly)  { Check-Command npm "npm" }
 
-if (-not $BackendOnly) {
+if (-not $FrontendOnly) {
     Log "\nStarting backend..." Yellow
     $backCmd = "cd '$projectRoot'; if (Test-Path '$venvActivate') { & '$venvActivate' }; uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     Start-Process -FilePath powershell.exe -ArgumentList "-NoExit", "-Command", $backCmd -WorkingDirectory $projectRoot
@@ -35,6 +35,10 @@ if (-not $BackendOnly) {
 }
 
 if (-not $BackendOnly) {
+    if (-not (Test-Path (Join-Path $frontendDir 'node_modules'))) {
+        Log "WARNING: Frontend dependencies appear missing. Run 'npm install' in $frontendDir first." Yellow
+    }
+
     Log "\nStarting frontend..." Yellow
     $frontCmd = "cd '$frontendDir'; npm start"
     Start-Process -FilePath powershell.exe -ArgumentList "-NoExit", "-Command", $frontCmd -WorkingDirectory $frontendDir

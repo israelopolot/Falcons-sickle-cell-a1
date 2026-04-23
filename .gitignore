@@ -29,6 +29,14 @@ out/
 .env.local
 .env.*.local
 
+# Data & Models (Large files / Sensitive)
+*.pth
+*.pkl
+P_CBC.xpt
+*.xpt
+data/
+models/
+
 # OS
 Thumbs.db
 .DS_Store
@@ -37,3 +45,6 @@ Thumbs.db
 # Temporary
 .DS_Store?
 *.log
+
+# sensistive data
+*.P_CBC.xpt
