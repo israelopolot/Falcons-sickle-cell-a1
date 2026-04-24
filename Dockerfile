@@ -11,7 +11,7 @@ COPY SICKLE-CELL-UI/sickle-cell-ui/package.json ./package.json
 COPY SICKLE-CELL-UI/sickle-cell-ui/package-lock.json ./package-lock.json
 
 # Install dependencies
-RUN npm ci --prefer-offline --no-audit
+RUN npm ci
 
 # Copy source
 COPY SICKLE-CELL-UI/sickle-cell-ui/public ./public
