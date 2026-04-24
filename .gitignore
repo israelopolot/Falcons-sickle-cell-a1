@@ -36,6 +36,10 @@ P_CBC.xpt
 *.xpt
 data/
 models/
+!models/
+!models/sickle_classifier.pth
+!models/lab_values_model.pth
+!models/lab_values_normalization.pkl
 
 # OS
 Thumbs.db
@@ -45,6 +49,3 @@ Thumbs.db
 # Temporary
 .DS_Store?
 *.log
-
-# sensistive data
-*.P_CBC.xpt
