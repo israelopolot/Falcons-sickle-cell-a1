@@ -7,7 +7,8 @@ FROM node:18-alpine as frontend-builder
 WORKDIR /app/frontend
 
 # Copy package files
-COPY SICKLE-CELL-UI/sickle-cell-ui/package*.json ./
+COPY SICKLE-CELL-UI/sickle-cell-ui/package.json ./package.json
+COPY SICKLE-CELL-UI/sickle-cell-ui/package-lock.json ./package-lock.json
 
 # Install dependencies
 RUN npm ci --prefer-offline --no-audit
@@ -44,28 +45,16 @@ COPY --from=frontend-builder /app/frontend/build ./frontend_build
 
 # Create startup script
 RUN echo '#!/bin/bash\n\
-echo "Starting FalconsScan AI..."\n\
-echo "Backend: http://0.0.0.0:8000"\n\
-echo "Frontend: http://0.0.0.0:3000"\n\
-\n\
-# Start backend\n\
-uvicorn app.main:app --host 0.0.0.0 --port 8000 &\n\
-BACKEND_PID=$!\n\
-\n\
-# Start frontend server\n\
-cd /app/frontend_build\n\
-python -m http.server 3000 &\n\
-FRONTEND_PID=$!\n\
-\n\
-wait $BACKEND_PID $FRONTEND_PID\n\
-' > /app/start.sh && chmod +x /app/start.sh
+export PORT=${PORT:-8000}\n\
+echo "Starting FalconsScan AI on port ${PORT}"\n\
+exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}\n' > /app/start.sh && chmod +x /app/start.sh
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\", \"8000\")}/health')" || exit 1
 
-# Expose ports
-EXPOSE 3000 8000
+# Expose port
+EXPOSE 8000
 
 # Run startup script
 CMD ["/app/start.sh"]

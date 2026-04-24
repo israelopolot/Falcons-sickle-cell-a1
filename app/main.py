@@ -7,6 +7,7 @@ import numpy as np
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import torch
 import torch.nn as nn
@@ -28,6 +29,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve frontend static build if available
+FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend_build"
+if FRONTEND_DIR.exists():
+    app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")
 
 # Load image classification model once at startup
 MODEL_PATH = "models/sickle_classifier.pth"
