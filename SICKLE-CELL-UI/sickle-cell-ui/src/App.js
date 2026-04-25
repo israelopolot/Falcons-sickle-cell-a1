@@ -126,84 +126,131 @@ function App() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
 
-      // For camera capture, the file might not have a proper type initially
-      // Convert to a proper blob if needed
-      let processedFile = file;
-
-      // If the file doesn't have a proper MIME type, try to determine it
-      if (!file.type || file.type === '') {
-        try {
-          // Create a new file with proper MIME type based on file extension or content
-          const fileName = file.name || 'camera_capture.jpg';
-          const mimeType = fileName.toLowerCase().includes('.png') ? 'image/png' : 'image/jpeg';
-          processedFile = new File([file], fileName, { type: mimeType });
-        } catch (error) {
-          console.warn('Could not process camera file type:', error);
-          processedFile = file;
-        }
-      }
-
-      // Security: Validate file size (Max 10MB)
-      if (processedFile.size > 10 * 1024 * 1024) {
-        setError('File size must be less than 10MB');
-        return;
-      }
-
-      // Additional validation for camera captures
-      if (processedFile.size === 0) {
-        setError('Camera capture failed. Please try again or upload from device.');
-        return;
-      }
-
-      setError(null);
-      setImageUrl(URL.createObjectURL(processedFile));
-      setIsProcessing(true);
-
+      // For camera capture, compress image to reduce memory usage
       try {
-        // Prepare form data
-        const formData = new FormData();
-        formData.append('image', processedFile);
+        setError(null);
+        setIsProcessing(true);
 
-        // Call backend API with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        // Read the file and compress it
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            // Create an image element to compress
+            const img = new Image();
+            img.onload = async () => {
+              try {
+                // Create canvas and compress image
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
 
-        const response = await fetch(getBackendEndpoint('/predict'), {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal,
-        });
+                // Resize if too large (max 1024px on longest side)
+                const maxSize = 1024;
+                if (width > maxSize || height > maxSize) {
+                  const ratio = Math.min(maxSize / width, maxSize / height);
+                  width *= ratio;
+                  height *= ratio;
+                }
 
-        clearTimeout(timeoutId);
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || 'Failed to analyze image');
-        }
+                // Convert to blob with compression
+                canvas.toBlob(
+                  (blob) => {
+                    if (blob.size > 10 * 1024 * 1024) {
+                      setError('Compressed image still exceeds 10MB. Please use a different image.');
+                      setIsProcessing(false);
+                      return;
+                    }
 
-        const data = await response.json();
+                    // Create a proper File object
+                    const compressedFile = new File([blob], 'camera_capture.jpg', {
+                      type: 'image/jpeg',
+                      lastModified: Date.now(),
+                    });
 
-        setResults({
-          type: 'image',
-          label: data.label,
-          confidence: (data.confidence * 100).toFixed(2),
-          interpretation: data.interpretation,
-          recommendations: data.recommendations,
-          is_sickle_positive: data.is_sickle_positive,
-          probabilities: data.probabilities,
-        });
+                    setImageUrl(URL.createObjectURL(compressedFile));
+                    sendImageToBackend(compressedFile);
+                  },
+                  'image/jpeg',
+                  0.85 // 85% quality compression
+                );
+              } catch (err) {
+                setError(`Image compression error: ${err.message}`);
+                setIsProcessing(false);
+              }
+            };
+
+            img.onerror = () => {
+              setError('Failed to process camera image. Please try again.');
+              setIsProcessing(false);
+            };
+
+            img.src = event.target.result;
+          } catch (err) {
+            setError(`Camera processing error: ${err.message}`);
+            setIsProcessing(false);
+          }
+        };
+
+        reader.onerror = () => {
+          setError('Failed to read camera file. Please try again.');
+          setIsProcessing(false);
+        };
+
+        reader.readAsDataURL(file);
       } catch (err) {
-        if (err.name === 'AbortError') {
-          setError('Request timed out. Please check your connection and try again.');
-        } else {
-          setError(`Camera capture error: ${err.message}`);
-        }
-        console.error('Camera capture error:', err);
-      } finally {
+        setError(`Camera capture error: ${err.message}`);
         setIsProcessing(false);
       }
     }
   };
+
+  const sendImageToBackend = async (imageFile) => {
+    try {
+      const formData = new FormData();
+      formData.append('image', imageFile);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      const response = await fetch(getBackendEndpoint('/predict'), {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to analyze image');
+      }
+
+      const data = await response.json();
+
+      setResults({
+        type: 'image',
+        label: data.label,
+        confidence: (data.confidence * 100).toFixed(2),
+        interpretation: data.interpretation,
+        recommendations: data.recommendations,
+        is_sickle_positive: data.is_sickle_positive,
+        probabilities: data.probabilities,
+      });
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        setError('Request timed out. Please check your connection and try again.');
+      } else {
+        setError(`Camera analysis error: ${err.message}`);
+      }
+      console.error('Backend analysis error:', err);
+    } finally {
+      setIsProcessing(false);
+    }
 
   const handleLabSubmit = async (e) => {
     e.preventDefault();
