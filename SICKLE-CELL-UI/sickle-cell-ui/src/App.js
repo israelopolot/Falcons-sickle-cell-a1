@@ -11,6 +11,7 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [cameraSupported, setCameraSupported] = useState(true);
+  const [imageUrl, setImageUrl] = useState(null);
 
   // Check camera support on component mount
   useEffect(() => {
@@ -82,6 +83,7 @@ function App() {
       }
 
       setError(null);
+      setImageUrl(URL.createObjectURL(file));
       setIsProcessing(true);
 
       try {
@@ -154,6 +156,7 @@ function App() {
       }
 
       setError(null);
+      setImageUrl(URL.createObjectURL(processedFile));
       setIsProcessing(true);
 
       try {
@@ -265,6 +268,10 @@ function App() {
     setSelectMode(null);
     setResults(null);
     setError(null);
+    if (imageUrl) {
+      URL.revokeObjectURL(imageUrl);
+    }
+    setImageUrl(null);
     setIsProcessing(false);
   };
 
@@ -568,6 +575,13 @@ function App() {
               <div className="medical-notice">
                 💡 <strong>Note:</strong> These results are for reference only. Consult a healthcare provider for clinical decisions.
               </div>
+              
+              {imageUrl && (
+                <div className="image-preview">
+                  <h3>Uploaded Image</h3>
+                  <img src={imageUrl} alt="Blood smear image" className="uploaded-image" />
+                </div>
+              )}
               
               <div className="results-card">
                 <div className="result-header">
