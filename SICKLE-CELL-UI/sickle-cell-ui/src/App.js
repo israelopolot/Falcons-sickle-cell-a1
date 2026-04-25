@@ -10,6 +10,31 @@ function App() {
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState(null);
+  const [cameraSupported, setCameraSupported] = useState(true);
+
+  // Check camera support on component mount
+  useEffect(() => {
+    const checkCameraSupport = async () => {
+      try {
+        // Check if getUserMedia is supported
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setCameraSupported(false);
+          return;
+        }
+
+        // Try to get camera permission (this will trigger permission dialog)
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream.getTracks().forEach(track => track.stop()); // Stop the stream immediately
+        setCameraSupported(true);
+      } catch (error) {
+        console.warn('Camera not supported or permission denied:', error);
+        setCameraSupported(false);
+      }
+    };
+
+    checkCameraSupport();
+  }, []);
+
   const [backendUrl] = useState(process.env.REACT_APP_API_URL || '');
 
   const getBackendEndpoint = (path) => {
@@ -42,7 +67,7 @@ function App() {
   const handleImageUpload = async (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      
+
       // Security: Validate file type
       const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/bmp'];
       if (!validTypes.includes(file.type)) {
@@ -58,7 +83,7 @@ function App() {
 
       setError(null);
       setIsProcessing(true);
-      
+
       try {
         // Prepare form data
         const formData = new FormData();
@@ -76,7 +101,7 @@ function App() {
         }
 
         const data = await response.json();
-        
+
         setResults({
           type: 'image',
           label: data.label,
@@ -89,6 +114,88 @@ function App() {
       } catch (err) {
         setError(`Error: ${err.message}`);
         console.error('Image upload error:', err);
+      } finally {
+        setIsProcessing(false);
+      }
+    }
+  };
+
+  const handleCameraCapture = async (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+
+      // For camera capture, the file might not have a proper type initially
+      // Convert to a proper blob if needed
+      let processedFile = file;
+
+      // If the file doesn't have a proper MIME type, try to determine it
+      if (!file.type || file.type === '') {
+        try {
+          // Create a new file with proper MIME type based on file extension or content
+          const fileName = file.name || 'camera_capture.jpg';
+          const mimeType = fileName.toLowerCase().includes('.png') ? 'image/png' : 'image/jpeg';
+          processedFile = new File([file], fileName, { type: mimeType });
+        } catch (error) {
+          console.warn('Could not process camera file type:', error);
+          processedFile = file;
+        }
+      }
+
+      // Security: Validate file size (Max 10MB)
+      if (processedFile.size > 10 * 1024 * 1024) {
+        setError('File size must be less than 10MB');
+        return;
+      }
+
+      // Additional validation for camera captures
+      if (processedFile.size === 0) {
+        setError('Camera capture failed. Please try again or upload from device.');
+        return;
+      }
+
+      setError(null);
+      setIsProcessing(true);
+
+      try {
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('image', processedFile);
+
+        // Call backend API with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+        const response = await fetch(getBackendEndpoint('/predict'), {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to analyze image');
+        }
+
+        const data = await response.json();
+
+        setResults({
+          type: 'image',
+          label: data.label,
+          confidence: (data.confidence * 100).toFixed(2),
+          interpretation: data.interpretation,
+          recommendations: data.recommendations,
+          is_sickle_positive: data.is_sickle_positive,
+          probabilities: data.probabilities,
+        });
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          setError('Request timed out. Please check your connection and try again.');
+        } else {
+          setError(`Camera capture error: ${err.message}`);
+        }
+        console.error('Camera capture error:', err);
       } finally {
         setIsProcessing(false);
       }
@@ -327,18 +434,28 @@ function App() {
                   />
                 </label>
 
-                <label htmlFor="cameraInput" className="camera-label">
-                  📸 Capture from Camera
-                  <input
-                    id="cameraInput"
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="file-input"
-                    onChange={handleImageUpload}
-                    disabled={isProcessing}
-                  />
-                </label>
+                {!cameraSupported ? (
+                  <div className="camera-disabled">
+                    <span className="camera-icon">📷</span>
+                    <div className="camera-text">
+                      <div className="camera-title">Camera Not Available</div>
+                      <div className="camera-subtitle">Use device upload instead</div>
+                    </div>
+                  </div>
+                ) : (
+                  <label htmlFor="cameraInput" className="camera-label">
+                    📸 Capture from Camera
+                    <input
+                      id="cameraInput"
+                      type="file"
+                      accept="image/*"
+                      capture={navigator.userAgent.includes('Mobile') ? 'environment' : undefined}
+                      className="file-input"
+                      onChange={handleCameraCapture}
+                      disabled={isProcessing}
+                    />
+                  </label>
+                )}
               </div>
               <p className="file-note">Supported formats: JPG, PNG, WebP, BMP (Max 10MB)</p>
               <button className="btn-cancel" onClick={handleReset} disabled={isProcessing}>

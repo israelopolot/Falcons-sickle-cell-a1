@@ -615,6 +615,35 @@ input:focus,
   border-color: #e6b800;
 }
 
+.camera-disabled {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  text-align: center;
+  background-color: #f9f9f9;
+  color: #999;
+  font-weight: 500;
+}
+
+.camera-disabled .camera-icon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+
+.camera-disabled .camera-title {
+  font-size: 1rem;
+  margin-bottom: 5px;
+}
+
+.camera-disabled .camera-subtitle {
+  font-size: 0.85rem;
+}
+
 .file-note {
   text-align: center;
   color: #999;
