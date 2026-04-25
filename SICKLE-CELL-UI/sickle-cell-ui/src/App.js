@@ -251,6 +251,7 @@ function App() {
     } finally {
       setIsProcessing(false);
     }
+  };
 
   const handleLabSubmit = async (e) => {
     e.preventDefault();
