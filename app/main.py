@@ -23,20 +23,20 @@ app = FastAPI(
 # CORS Configuration for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Load image classification model once at startup
+# Loading image classification model 
 MODEL_PATH = "models/sickle_classifier.pth"
 if not Path(MODEL_PATH).exists():
     raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
 
 model, classes = load_model(MODEL_PATH)
 
-# Load lab values model and normalization parameters
+# Loading lab values model and normalization parameters
 LAB_VALUES_MODEL_PATH = "models/lab_values_model.pth"
 LAB_VALUES_NORMALIZATION_PATH = "models/lab_values_normalization.pkl"
 
@@ -44,7 +44,7 @@ lab_values_model = None
 lab_values_normalization = None
 
 if Path(LAB_VALUES_MODEL_PATH).exists() and Path(LAB_VALUES_NORMALIZATION_PATH).exists():
-    # Define lab values model architecture (must match training)
+    # Defining lab values model architecture 
     class LabValuesModelArch(nn.Module):
         def __init__(self, input_size=5, hidden_size=64, num_classes=3):
             super(LabValuesModelArch, self).__init__()
@@ -78,7 +78,7 @@ if Path(LAB_VALUES_MODEL_PATH).exists() and Path(LAB_VALUES_NORMALIZATION_PATH).
         lab_values_normalization = pickle.load(f)
 
 
-# ============== Response Models ==============
+# Response Model
 
 class PredictionResponse(BaseModel):
     """Response model for image prediction"""
@@ -111,7 +111,7 @@ class HealthCheckResponse(BaseModel):
     version: str
 
 
-# ============== Helper Functions ==============
+# Helper Functions 
 
 def get_medical_interpretation(label: str, confidence: float) -> tuple:
     """
@@ -301,11 +301,10 @@ def analyze_lab_values(hb: float, wbc: float, rbc: float, rdw: float, platelets:
         analysis["platelets"]["interpretation"] = "Elevated platelet count - thrombocytosis"
         risk_indicators.append("thrombocytosis")
     
-    # Get ML model prediction if available
+    # Geting ML model prediction 
     ml_prediction = None
     if lab_values_model is not None and lab_values_normalization is not None:
         try:
-            # Prepare input for ML model
             mean = lab_values_normalization['mean']
             std = lab_values_normalization['std']
             
@@ -313,7 +312,7 @@ def analyze_lab_values(hb: float, wbc: float, rbc: float, rdw: float, platelets:
             input_normalized = (input_array - mean) / std
             input_tensor = torch.FloatTensor(input_normalized)
             
-            # Get prediction
+            #  prediction
             with torch.no_grad():
                 output = lab_values_model(input_tensor)
                 probabilities = torch.softmax(output, dim=1)[0]
@@ -330,7 +329,7 @@ def analyze_lab_values(hb: float, wbc: float, rbc: float, rdw: float, platelets:
         except Exception as e:
             print(f"Warning: ML model prediction failed: {e}")
     
-    # Determine overall risk assessment
+    # Determining overall risk assessment
     if ml_prediction:
         model_label = ml_prediction["model_prediction"]
         confidence_pct = ml_prediction["confidence"] * 100
@@ -374,7 +373,7 @@ def analyze_lab_values(hb: float, wbc: float, rbc: float, rdw: float, platelets:
     return analysis, risk_assessment, recommendations, ml_prediction
 
 
-# ============== API Endpoints ==============
+# API Endpoints
 
 @app.get("/health", response_model=HealthCheckResponse)
 async def health_check():
